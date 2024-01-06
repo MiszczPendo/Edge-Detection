@@ -1,17 +1,17 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <windows.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-SDL_Surface *load_image(char *file);
+SDL_Surface *open_file_dialog_to_load_file();
+SDL_Surface *load_image(char *file);    // Should be called load_icon and do everything (create surface, texture etc.)
 SDL_Surface *sobel_algorithm(SDL_Surface *surface);
+bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect);
 // void save_image(SDL_Surface *processed);
 
 int main(int argc, char *argv[])
 {
-    char *file = "test.png";            // In future add option to select a file
-                                        // For now image is already in grayscale
-
     // Initialize SDL (defaults subsystems and Video)
     if(SDL_Init(SDL_INIT_VIDEO) == -1)
     {
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     int button_width = button_surface->w;
 
     // Create a window
-    SDL_Window *window = SDL_CreateWindow("Edge Detection", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 301 * 2, 263 + button_height, SDL_WINDOW_SHOWN); // I SET CONST WINDOW SIZE
+    SDL_Window *window = SDL_CreateWindow("Edge Detection", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, button_width * 18, button_height, SDL_WINDOW_SHOWN); // I SET CONST WINDOW SIZE
     if(window == NULL)
     {
         printf("Couldn't create window. Error: %s.\n", SDL_GetError());
@@ -62,19 +62,20 @@ int main(int argc, char *argv[])
 
     // Render buttons MODIFY IN FUTURE
     SDL_Texture *button_texture = SDL_CreateTextureFromSurface(renderer, button_surface);
-    SDL_Rect dstrect_add_file = {5, 0, button_width, button_height};
-    SDL_RenderCopy(renderer, button_texture, NULL, &dstrect_add_file);
+    SDL_Rect add_file_rect = {5, 0, button_width, button_height};
+    SDL_RenderCopy(renderer, button_texture, NULL, &add_file_rect);
 
     button_surface = load_image("src/icons/save_icon.png");
     button_texture = SDL_CreateTextureFromSurface(renderer, button_surface);
-    SDL_Rect dstrect_save_file = {301 + 5, 0, button_width, button_height}; // CHANGE PLACE IN FUTURE
-    SDL_RenderCopy(renderer, button_texture, NULL, &dstrect_save_file);
+    SDL_Rect save_file_rect = {401 + 5, 0, button_width, button_height}; // CHANGE PLACE IN FUTURE
+    SDL_RenderCopy(renderer, button_texture, NULL, &save_file_rect);
     SDL_FreeSurface(button_surface);
     SDL_DestroyTexture(button_texture);
 
-    // Main while loop to keep the program running
-    int only_once = 1;
+    // Display rendered buttons
+    SDL_RenderPresent(renderer);
 
+    // Main while loop to keep the program running
     bool quit = false;
     SDL_Event event;
     while(!quit)
@@ -82,82 +83,99 @@ int main(int argc, char *argv[])
         // Loop to handle events
         while(SDL_PollEvent(&event) == 1)
         {
-            // Quit when user clicks exit button
+            // Quit when user clicked exit button
             if(event.type == SDL_QUIT)
             {
                 quit = true;
                 break;
             }
-            else if(only_once == 1)
+            else if(event.type == SDL_MOUSEBUTTONDOWN)
             {
-                // Surface to hold loaded image
-                SDL_Surface *surface = load_image(file);
-                if(surface == NULL)
+                // Variables storing coordinates where user clicked
+                int mouse_x = event.button.x;
+                int mouse_y = event.button.y;
+
+                // User clicked add file icon
+                if(is_clicked_in_rect(mouse_x, mouse_y, &add_file_rect))
                 {
-                    printf("Couldn't load: %s. Error: %s.\n", file, IMG_GetError());
-                    IMG_Quit();
-                    SDL_Quit();
-                    return 1;
+                    printf("Add file!\n");
+
+                    // Surface to hold loaded image
+                    SDL_Surface *surface = open_file_dialog_to_load_file();
+                    if(surface == NULL)
+                    {
+                        printf("Couldn't load image. Error: %s.\n", IMG_GetError());
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
+                    // Surface dimensions
+                    int width = surface->w;
+                    int height = surface->h;
+
+                    // Resize window to fit 2 images on it
+                    SDL_SetWindowSize(window, width * 2, height + button_height);
+
+                    // Create a original texture from surface before edge detection
+                    SDL_Texture *origiranl_texture;
+                    origiranl_texture = SDL_CreateTextureFromSurface(renderer, surface);
+                    if(origiranl_texture == NULL)
+                    {
+                        printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
+                    // Copy original texture to rendering buffer
+                    SDL_Rect dstrect_original_texture = {0, button_height, width, height};
+                    SDL_RenderCopy(renderer, origiranl_texture, NULL, &dstrect_original_texture);
+                    SDL_DestroyTexture(origiranl_texture);
+
+                    SDL_Surface *processed_surface;
+                    processed_surface = sobel_algorithm(surface);
+                    if(processed_surface == NULL)
+                    {
+                        printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        SDL_FreeSurface(surface);
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+                    
+                    // Create a processed texture from processed surface after edge detection
+                    SDL_Texture *processed_texture;
+                    processed_texture = SDL_CreateTextureFromSurface(renderer, processed_surface);
+                    SDL_FreeSurface(processed_surface);
+                    if(processed_texture == NULL)
+                    {
+                        printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
+                    // Copy processed texture to rendering buffer
+                    SDL_Rect dstrect_processed_texture = {width, button_height, width, height};
+                    SDL_RenderCopy(renderer, processed_texture, NULL, &dstrect_processed_texture);
+                    SDL_DestroyTexture(processed_texture);
+
+                    // Display content of rendering buffer
+                    SDL_RenderPresent(renderer);
                 }
 
-                // Surface dimensions
-                int width = surface->w;
-                int height = surface->h;
-
-                // Create a original texture from surface before edge detection
-                SDL_Texture *origiranl_texture;
-                origiranl_texture = SDL_CreateTextureFromSurface(renderer, surface);
-                if(origiranl_texture == NULL)
+                // User clicked save file icon
+                if(is_clicked_in_rect(mouse_x, mouse_y, &save_file_rect))
                 {
-                    printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
-                    SDL_DestroyRenderer(renderer);
-                    SDL_DestroyWindow(window);
-                    IMG_Quit();
-                    SDL_Quit();
-                    return 1;
+                    printf("Save file!\n");
                 }
-
-                // Copy original texture to rendering buffer
-                SDL_Rect dstrect_original_texture = {0, button_height, width, height};
-                SDL_RenderCopy(renderer, origiranl_texture, NULL, &dstrect_original_texture);
-                SDL_DestroyTexture(origiranl_texture);
-
-                SDL_Surface *processed_surface;
-                processed_surface = sobel_algorithm(surface);
-                if(processed_surface == NULL)
-                {
-                    printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
-                    SDL_DestroyRenderer(renderer);
-                    SDL_DestroyWindow(window);
-                    SDL_FreeSurface(surface);
-                    IMG_Quit();
-                    SDL_Quit();
-                    return 1;
-                }
-                
-                // Create a processed texture from processed surface after edge detection
-                SDL_Texture *processed_texture;
-                processed_texture = SDL_CreateTextureFromSurface(renderer, processed_surface);
-                SDL_FreeSurface(processed_surface);
-                if(processed_texture == NULL)
-                {
-                    printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
-                    SDL_DestroyRenderer(renderer);
-                    SDL_DestroyWindow(window);
-                    IMG_Quit();
-                    SDL_Quit();
-                    return 1;
-                }
-
-                // Copy processed texture to rendering buffer
-                SDL_Rect dstrect_processed_texture = {width, button_height, width, height};
-                SDL_RenderCopy(renderer, processed_texture, NULL, &dstrect_processed_texture);
-                SDL_DestroyTexture(processed_texture);
-
-                // Display content of rendering buffer
-                SDL_RenderPresent(renderer);
-
-                only_once++;
             }
         }
     }
@@ -169,6 +187,47 @@ int main(int argc, char *argv[])
     SDL_Quit();
 
     return 0;
+}
+
+
+bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect)
+{
+    return (mouse_x >= rect->x && mouse_x <= rect->w && mouse_y >= rect->y && mouse_y <= rect->h);
+}
+
+
+SDL_Surface *open_file_dialog_to_load_file()
+{
+    SDL_Surface *surface;
+    char file_name[512];
+
+    // Initialize and set up OPENFILENAME structure
+    OPENFILENAME ofn;
+    ZeroMemory(&ofn, sizeof(OPENFILENAME));
+    ofn.lStructSize = sizeof(OPENFILENAME);
+    ofn.lpstrFile = file_name;
+    ofn.lpstrFile[0] = '\0';
+    ofn.nMaxFile = sizeof(file_name);
+    ofn.lpstrFilter = "Images (*.png, *.jpg)\0*.png;*.jpg\0";
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+    // Display open file dialog box
+    if (GetOpenFileName(&ofn) == TRUE)
+    {
+        // Loading selected image into a surface to access pixel data
+        surface = IMG_Load(file_name);
+        if(surface == NULL)
+        {
+            return NULL;
+        }
+    }
+    else
+    {
+        // User closed the open file dialog box
+        return NULL;
+    }
+
+    return surface;
 }
 
 
