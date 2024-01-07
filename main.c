@@ -5,7 +5,7 @@
 #include <SDL2/SDL_image.h>
 
 SDL_Surface *open_file_dialog_to_load_file();
-SDL_Surface *load_image(char *file);    // Should be called load_icon and do everything (create surface, texture etc.)
+void render_buttons(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer);
 SDL_Surface *sobel_algorithm(SDL_Surface *surface);
 bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect);
 // void save_image(SDL_Surface *processed);
@@ -28,17 +28,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Load files with button images and store their dimensions (needed for window size)
-    SDL_Surface *button_surface = load_image("src/icons/add_icon.png");
-    int button_height = button_surface->h;
-    int button_width = button_surface->w;
+    // Buttons icon resolution (they are a square so width == height)
+    SDL_Surface *add_button_surface = IMG_Load("src/icons/add_icon.png");
+    int button_res = add_button_surface->w;
 
     // Create a window
-    SDL_Window *window = SDL_CreateWindow("Edge Detection", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, button_width * 18, button_height, SDL_WINDOW_SHOWN); // I SET CONST WINDOW SIZE
+    SDL_Window *window = SDL_CreateWindow("Edge Detection", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, button_res * 20, button_res, SDL_WINDOW_SHOWN);
     if(window == NULL)
     {
         printf("Couldn't create window. Error: %s.\n", SDL_GetError());
-        // SDL_FreeSurface(surface);
+        SDL_FreeSurface(add_button_surface);
         IMG_Quit();
         SDL_Quit();
         return 1;
@@ -50,32 +49,26 @@ int main(int argc, char *argv[])
     {
         printf("Couldn't create renderer. Error: %s.\n", SDL_GetError());
         SDL_DestroyWindow(window);
-        // SDL_FreeSurface(surface);
+        SDL_FreeSurface(add_button_surface);
         IMG_Quit();
         SDL_Quit();
         return 1;
     }
 
-    // Set background color
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White
-    SDL_RenderClear(renderer);
+    // Create textures
+    SDL_Texture *add_button_texture = SDL_CreateTextureFromSurface(renderer, add_button_surface);   // Maybe I should add validation for creating texture
+    SDL_FreeSurface(add_button_surface);
+    SDL_Surface *save_button_surface = IMG_Load("src/icons/save_icon.png");
+    SDL_Texture *save_button_texture = SDL_CreateTextureFromSurface(renderer, save_button_surface);
+    SDL_FreeSurface(save_button_surface);
 
-    // Render buttons MODIFY IN FUTURE
-    SDL_Texture *button_texture = SDL_CreateTextureFromSurface(renderer, button_surface);
-    SDL_Rect add_file_rect = {5, 0, button_width, button_height};
-    SDL_RenderCopy(renderer, button_texture, NULL, &add_file_rect);
+    // Determines places where buttons are located
+    SDL_Rect add_button_rect = {5, 0, button_res, button_res};
+    SDL_Rect save_button_rect = {(button_res * 10) + 5, 0, button_res, button_res};
 
-    button_surface = load_image("src/icons/save_icon.png");
-    button_texture = SDL_CreateTextureFromSurface(renderer, button_surface);
-    SDL_Rect save_file_rect = {401 + 5, 0, button_width, button_height}; // CHANGE PLACE IN FUTURE
-    SDL_RenderCopy(renderer, button_texture, NULL, &save_file_rect);
-    SDL_FreeSurface(button_surface);
-    SDL_DestroyTexture(button_texture);
+    render_buttons(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
 
-    // Display rendered buttons
-    SDL_RenderPresent(renderer);
-
-    // Main while loop to keep the program running
+    // Main loop to keep the program running
     bool quit = false;
     SDL_Event event;
     while(!quit)
@@ -95,8 +88,8 @@ int main(int argc, char *argv[])
                 int mouse_x = event.button.x;
                 int mouse_y = event.button.y;
 
-                // User clicked add file icon
-                if(is_clicked_in_rect(mouse_x, mouse_y, &add_file_rect))
+                // User clicked add file button
+                if(is_clicked_in_rect(mouse_x, mouse_y, &add_button_rect))
                 {
                     printf("Add file!\n");
 
@@ -104,25 +97,34 @@ int main(int argc, char *argv[])
                     SDL_Surface *surface = open_file_dialog_to_load_file();
                     if(surface == NULL)
                     {
-                        printf("Couldn't load image. Error: %s.\n", IMG_GetError());
+                        printf("Error: %s.\n", IMG_GetError());
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
                     }
 
-                    // Surface dimensions
+                    // Surface resolution
                     int width = surface->w;
                     int height = surface->h;
 
                     // Resize window to fit 2 images on it
-                    SDL_SetWindowSize(window, width * 2, height + button_height);
+                    SDL_SetWindowSize(window, width * 2, height + button_res);
+                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+
+                    save_button_rect.x = width + 5;
+                    render_buttons(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
 
                     // Create a original texture from surface before edge detection
-                    SDL_Texture *origiranl_texture;
-                    origiranl_texture = SDL_CreateTextureFromSurface(renderer, surface);
+                    SDL_Texture *origiranl_texture = SDL_CreateTextureFromSurface(renderer, surface);
                     if(origiranl_texture == NULL)
                     {
                         printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         IMG_Quit();
@@ -131,15 +133,16 @@ int main(int argc, char *argv[])
                     }
 
                     // Copy original texture to rendering buffer
-                    SDL_Rect dstrect_original_texture = {0, button_height, width, height};
+                    SDL_Rect dstrect_original_texture = {0, button_res, width, height};
                     SDL_RenderCopy(renderer, origiranl_texture, NULL, &dstrect_original_texture);
                     SDL_DestroyTexture(origiranl_texture);
 
-                    SDL_Surface *processed_surface;
-                    processed_surface = sobel_algorithm(surface);
+                    SDL_Surface *processed_surface = sobel_algorithm(surface);
                     if(processed_surface == NULL)
                     {
                         printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         SDL_FreeSurface(surface);
@@ -149,12 +152,13 @@ int main(int argc, char *argv[])
                     }
                     
                     // Create a processed texture from processed surface after edge detection
-                    SDL_Texture *processed_texture;
-                    processed_texture = SDL_CreateTextureFromSurface(renderer, processed_surface);
+                    SDL_Texture *processed_texture = SDL_CreateTextureFromSurface(renderer, processed_surface);
                     SDL_FreeSurface(processed_surface);
                     if(processed_texture == NULL)
                     {
                         printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         IMG_Quit();
@@ -163,7 +167,7 @@ int main(int argc, char *argv[])
                     }
 
                     // Copy processed texture to rendering buffer
-                    SDL_Rect dstrect_processed_texture = {width, button_height, width, height};
+                    SDL_Rect dstrect_processed_texture = {width, button_res, width, height};
                     SDL_RenderCopy(renderer, processed_texture, NULL, &dstrect_processed_texture);
                     SDL_DestroyTexture(processed_texture);
 
@@ -171,8 +175,8 @@ int main(int argc, char *argv[])
                     SDL_RenderPresent(renderer);
                 }
 
-                // User clicked save file icon
-                if(is_clicked_in_rect(mouse_x, mouse_y, &save_file_rect))
+                // User clicked save file button
+                if(is_clicked_in_rect(mouse_x, mouse_y, &save_button_rect))
                 {
                     printf("Save file!\n");
                 }
@@ -181,12 +185,29 @@ int main(int argc, char *argv[])
     }
 
     // Clean up resources
+    SDL_DestroyTexture(add_button_texture);
+    SDL_DestroyTexture(save_button_texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     IMG_Quit();
     SDL_Quit();
 
     return 0;
+}
+
+
+void render_buttons(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer)
+{
+    // Set background color
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White
+    SDL_RenderClear(renderer);
+
+    // Render buttons
+    SDL_RenderCopy(renderer, add_button_texture, NULL, &add_button_rect);
+    SDL_RenderCopy(renderer, save_button_texture, NULL, &save_button_rect);
+
+    // Display rendered buttons
+    SDL_RenderPresent(renderer);
 }
 
 
@@ -218,25 +239,14 @@ SDL_Surface *open_file_dialog_to_load_file()
         surface = IMG_Load(file_name);
         if(surface == NULL)
         {
+            printf("Couldn't load image. ");
             return NULL;
         }
     }
     else
     {
         // User closed the open file dialog box
-        return NULL;
-    }
-
-    return surface;
-}
-
-
-SDL_Surface *load_image(char *file)
-{
-    // Loading image from file into a surface to access pixel data
-    SDL_Surface *surface = IMG_Load(file);
-    if(surface == NULL)
-    {
+        printf("You didn't select an image. ");
         return NULL;
     }
 
