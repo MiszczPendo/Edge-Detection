@@ -4,11 +4,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-SDL_Surface *open_file_dialog_to_load_file();
 void render_buttons(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer);
-SDL_Surface *sobel_algorithm(SDL_Surface *surface);
 bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect);
-// void save_image(SDL_Surface *processed);
+void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option);
+SDL_Surface *sobel_algorithm(SDL_Surface *surface);
 
 int main(int argc, char *argv[])
 {
@@ -56,7 +55,7 @@ int main(int argc, char *argv[])
     }
 
     // Create textures
-    SDL_Texture *add_button_texture = SDL_CreateTextureFromSurface(renderer, add_button_surface);   // Maybe I should add validation for creating texture
+    SDL_Texture *add_button_texture = SDL_CreateTextureFromSurface(renderer, add_button_surface);
     SDL_FreeSurface(add_button_surface);
     SDL_Surface *save_button_surface = IMG_Load("src/icons/save_icon.png");
     SDL_Texture *save_button_texture = SDL_CreateTextureFromSurface(renderer, save_button_surface);
@@ -67,6 +66,8 @@ int main(int argc, char *argv[])
     SDL_Rect save_button_rect = {(button_res * 10) + 5, 0, button_res, button_res};
 
     render_buttons(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
+
+    SDL_Surface *processed_surface;
 
     // Main loop to keep the program running
     bool quit = false;
@@ -88,16 +89,25 @@ int main(int argc, char *argv[])
                 int mouse_x = event.button.x;
                 int mouse_y = event.button.y;
 
+                char file_path[512];
+
                 // User clicked add file button
                 if(is_clicked_in_rect(mouse_x, mouse_y, &add_button_rect))
                 {
-                    printf("Add file!\n");
+                    load_save_file_dialog_box(file_path, sizeof(file_path), 1);
 
-                    // Surface to hold loaded image
-                    SDL_Surface *surface = open_file_dialog_to_load_file();
+                    // If user closed load file dialog box
+                    if(file_path[0] == '\0')
+                    {
+                        printf("You didn't select image to load.\n");
+                        continue;
+                    }
+
+                    // Load selected image into a surface to access pixel data
+                    SDL_Surface *surface = IMG_Load(file_path);
                     if(surface == NULL)
                     {
-                        printf("Error: %s.\n", IMG_GetError());
+                        printf("Couldn't load image. Error: %s.\n", IMG_GetError());
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
@@ -137,7 +147,8 @@ int main(int argc, char *argv[])
                     SDL_RenderCopy(renderer, origiranl_texture, NULL, &dstrect_original_texture);
                     SDL_DestroyTexture(origiranl_texture);
 
-                    SDL_Surface *processed_surface = sobel_algorithm(surface);
+                    // Apply Sobel algorithm on surface
+                    processed_surface = sobel_algorithm(surface);
                     if(processed_surface == NULL)
                     {
                         printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
@@ -153,10 +164,10 @@ int main(int argc, char *argv[])
                     
                     // Create a processed texture from processed surface after edge detection
                     SDL_Texture *processed_texture = SDL_CreateTextureFromSurface(renderer, processed_surface);
-                    SDL_FreeSurface(processed_surface);
                     if(processed_texture == NULL)
                     {
                         printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
+                        SDL_FreeSurface(processed_surface);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
@@ -178,7 +189,24 @@ int main(int argc, char *argv[])
                 // User clicked save file button
                 if(is_clicked_in_rect(mouse_x, mouse_y, &save_button_rect))
                 {
-                    printf("Save file!\n");
+                    load_save_file_dialog_box(file_path, sizeof(file_path), 2);
+
+                    // If user closed save file dialog box
+                    if(file_path[0] == '\0')
+                    {
+                        printf("You didn't select file to save image.\n");
+                        continue;
+                    }
+
+                    // Save processed image to selected file
+                    if(IMG_SavePNG(processed_surface, file_path) == 0)
+                    {
+                        SDL_FreeSurface(processed_surface);
+                    }
+                    else
+                    {
+                        printf("Couldn't save processed image. Error: %s.\n", IMG_GetError());
+                    }
                 }
             }
         }
@@ -213,44 +241,45 @@ void render_buttons(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Tex
 
 bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect)
 {
-    return (mouse_x >= rect->x && mouse_x <= rect->w && mouse_y >= rect->y && mouse_y <= rect->h);
+    return (mouse_x >= rect->x && mouse_x <= rect->x + rect->w && mouse_y >= rect->y && mouse_y <= rect->h);
 }
 
 
-SDL_Surface *open_file_dialog_to_load_file()
+void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option)
 {
-    SDL_Surface *surface;
-    char file_name[512];
-
     // Initialize and set up OPENFILENAME structure
     OPENFILENAME ofn;
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
     ofn.lStructSize = sizeof(OPENFILENAME);
-    ofn.lpstrFile = file_name;
+    ofn.lpstrFile = file_path;
     ofn.lpstrFile[0] = '\0';
-    ofn.nMaxFile = sizeof(file_name);
-    ofn.lpstrFilter = "Images (*.png, *.jpg)\0*.png;*.jpg\0";
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+    ofn.nMaxFile = buffer_size;
 
-    // Display open file dialog box
-    if (GetOpenFileName(&ofn) == TRUE)
+    // Option to load file
+    if(option == 1)
     {
-        // Loading selected image into a surface to access pixel data
-        surface = IMG_Load(file_name);
-        if(surface == NULL)
+        ofn.lpstrFilter = "Images (*.png, *.jpg)\0*.png;*.jpg\0";
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+        // Display open file dialog box
+        if(GetOpenFileName(&ofn) != TRUE)
         {
-            printf("Couldn't load image. ");
-            return NULL;
+            file_path[0] = '\0';
         }
     }
-    else
+    // Option to save file
+    else if(option == 2)
     {
-        // User closed the open file dialog box
-        printf("You didn't select an image. ");
-        return NULL;
-    }
+        ofn.lpstrFilter = "PNG (*.png)\0*.png\0";
+        ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT;
+        ofn.lpstrDefExt = "png";
 
-    return surface;
+        // Display save file dialog box
+        if(GetSaveFileName(&ofn) != TRUE)
+        {
+            file_path[0] = '\0';
+        }
+    }
 }
 
 
