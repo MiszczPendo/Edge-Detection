@@ -12,7 +12,7 @@ SDL_Surface *sobel_algorithm(SDL_Surface *surface);
 int main(int argc, char *argv[])
 {
     // Initialize SDL (defaults subsystems and Video)
-    if(SDL_Init(SDL_INIT_VIDEO) == -1)
+    if(SDL_Init(SDL_INIT_VIDEO) != 0)
     {
         printf("Couldn't initialize SDL. Error: %s.\n", SDL_GetError());
         return 1;
@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
                     if(origiranl_texture == NULL)
                     {
                         printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
+                        SDL_FreeSurface(surface);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
@@ -147,8 +148,66 @@ int main(int argc, char *argv[])
                     SDL_RenderCopy(renderer, origiranl_texture, NULL, &dstrect_original_texture);
                     SDL_DestroyTexture(origiranl_texture);
 
-                    // Apply Sobel algorithm on surface
-                    processed_surface = sobel_algorithm(surface);
+                    // Create 8-bit surface
+                    SDL_Surface *eight_bit_surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 8, SDL_PIXELFORMAT_INDEX8);
+                    if(eight_bit_surface == NULL)
+                    {
+                        printf("Couldn't convert surface pixel format. Error: %s.\n", SDL_GetError());
+                        SDL_FreeSurface(surface);
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
+                    // Palette configuration for 8-bit surface
+                    SDL_Color grayscale_palette[256];
+                    for(int i = 0; i < 256; i++)
+                    {
+                        grayscale_palette[i].r = i;
+                        grayscale_palette[i].g = i;
+                        grayscale_palette[i].b = i;
+                    }
+                    if(SDL_SetPaletteColors(eight_bit_surface->format->palette, grayscale_palette, 0, 256) != 0)
+                    {
+                        printf("Couldn't set all of the colors. Error: %s.\n", SDL_GetError());
+                        SDL_FreeSurface(eight_bit_surface);
+                        SDL_FreeSurface(surface);
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
+                    // Convert image to grayscale
+                    Uint8 r, g, b;
+                    Uint32 rgb_pixel;
+                    Uint8 grayscale_pixel;
+
+                    for(int y = 0; y < height; y++)
+                    {
+                        for(int x = 0; x < width; x++)
+                        {
+                            rgb_pixel = ((Uint32 *)surface->pixels)[y * surface->pitch / 4 + x];
+
+                            // Extract RGB values from pixel and calculate the value of gray pixel based on linear luminance
+                            SDL_GetRGB(rgb_pixel, surface->format, &r, &g, &b);
+                            grayscale_pixel = (Uint8) (0.299 * r + 0.587 * g + 0.114 * b);
+
+                            ((Uint8 *)eight_bit_surface->pixels)[y * eight_bit_surface->pitch + x] = grayscale_pixel;
+                        }
+                    }
+
+                    SDL_FreeSurface(surface);
+
+                    // Apply Sobel algorithm on converted surface
+                    processed_surface = sobel_algorithm(eight_bit_surface);
                     if(processed_surface == NULL)
                     {
                         printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
@@ -156,7 +215,6 @@ int main(int argc, char *argv[])
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
-                        SDL_FreeSurface(surface);
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -213,6 +271,7 @@ int main(int argc, char *argv[])
     }
 
     // Clean up resources
+    SDL_FreeSurface(processed_surface);
     SDL_DestroyTexture(add_button_texture);
     SDL_DestroyTexture(save_button_texture);
     SDL_DestroyRenderer(renderer);
@@ -286,8 +345,7 @@ void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option)
 SDL_Surface *sobel_algorithm(SDL_Surface *surface)
 {
     // Make copy of surface
-    SDL_Surface *processed_surface;
-    processed_surface = SDL_ConvertSurface(surface, surface->format, 0);
+    SDL_Surface *processed_surface = SDL_DuplicateSurface(surface);
     if(processed_surface == NULL)
     {
         return NULL;
@@ -300,22 +358,22 @@ SDL_Surface *sobel_algorithm(SDL_Surface *surface)
     }
     
     // Implementation of Sobel algorithm for edge detection
-    // Horizontal kernel
-    //  -1  0  1
-    //  -2  0  2
-    //  -1  0  1
-    const int HORIZONTAL[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+    const int HORIZONTAL_KERNEL[3][3] = {
+        {-1, 0, 1}, 
+        {-2, 0, 2}, 
+        {-1, 0, 1}
+    };
 
-    // Vertical kernel
-    //   1  2  1
-    //   0  0  0
-    //  -1 -2 -1
-    const int VERTICAL[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
+    const int VERTICAL_KERNEL[3][3] = {
+        {1, 2, 1}, 
+        {0, 0, 0}, 
+        {-1, -2, -1}
+    };
       
-    Uint8 surrounding_pixel_value;            // Because of SDL_PIXELFORMAT_INDEX8
+    Uint8 surrounding_pixel_value;
     int gradient_horizontal, gradient_vertical;
     int magnitude;
-    int threshold = 200;
+    int threshold = 100;
 
     // Loops going through every pixel (excluding borders)
     for(int y = 1; y < surface->h - 1; y++)
@@ -332,8 +390,8 @@ SDL_Surface *sobel_algorithm(SDL_Surface *surface)
                 {
                     surrounding_pixel_value = ((Uint8 *)surface->pixels)[(y + j) * surface->pitch + (x + i)];
 
-                    gradient_horizontal += surrounding_pixel_value * HORIZONTAL[j + 1][i + 1];
-                    gradient_vertical += surrounding_pixel_value * VERTICAL[j + 1][i + 1];
+                    gradient_horizontal += surrounding_pixel_value * HORIZONTAL_KERNEL[j + 1][i + 1];
+                    gradient_vertical += surrounding_pixel_value * VERTICAL_KERNEL[j + 1][i + 1];
                 }
             }
 
