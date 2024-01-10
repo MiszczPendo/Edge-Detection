@@ -39,6 +39,13 @@ int main(int argc, char *argv[])
 
     // Buttons icon resolution - 32 px (they are a square so width == height)
     SDL_Surface *add_button_surface = IMG_Load("src/icons/add_icon.png");
+    if(add_button_surface == NULL)
+    {
+        printf("Couldn't load add icon. Error: %s.\n", IMG_GetError());
+        TTF_Quit();
+        IMG_Quit();
+        SDL_Quit();
+    }
     int button_res = add_button_surface->w;
 
     // Create a window
@@ -69,7 +76,18 @@ int main(int argc, char *argv[])
     // Create textures for buttons
     SDL_Texture *add_button_texture = SDL_CreateTextureFromSurface(renderer, add_button_surface);
     SDL_FreeSurface(add_button_surface);
+
     SDL_Surface *save_button_surface = IMG_Load("src/icons/save_icon.png");
+    if(save_button_surface == NULL)
+    {
+        printf("Couldn't load save icon. Error: %s.\n", IMG_GetError());
+        SDL_DestroyTexture(add_button_texture);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        IMG_Quit();
+        SDL_Quit();
+    }
     SDL_Texture *save_button_texture = SDL_CreateTextureFromSurface(renderer, save_button_surface);
     SDL_FreeSurface(save_button_surface);
 
@@ -151,7 +169,9 @@ int main(int argc, char *argv[])
                         printf("Couldn't load image. Error: %s.\n", IMG_GetError());
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -180,7 +200,9 @@ int main(int argc, char *argv[])
                         SDL_FreeSurface(surface);
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -202,7 +224,9 @@ int main(int argc, char *argv[])
                         SDL_FreeSurface(surface);
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -226,7 +250,9 @@ int main(int argc, char *argv[])
                         SDL_FreeSurface(surface);
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -243,7 +269,9 @@ int main(int argc, char *argv[])
                         SDL_FreeSurface(surface);
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -283,7 +311,9 @@ int main(int argc, char *argv[])
                         printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -300,7 +330,9 @@ int main(int argc, char *argv[])
                         SDL_FreeSurface(processed_surface);
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
                         SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
                         TTF_Quit();
@@ -348,7 +380,9 @@ int main(int argc, char *argv[])
     SDL_FreeSurface(processed_surface);
     TTF_CloseFont(font);
     SDL_DestroyTexture(add_button_texture);
+    SDL_DestroyTexture(add_text_texture);
     SDL_DestroyTexture(save_button_texture);
+    SDL_DestroyTexture(save_text_texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     TTF_Quit();
