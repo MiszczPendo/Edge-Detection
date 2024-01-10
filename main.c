@@ -5,7 +5,7 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 
-void render_buttons_with_text(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer);
+void render_buttons_with_text(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button, SDL_Texture *save_button, SDL_Rect add_text_rect, SDL_Rect save_text_rect, SDL_Texture *add_text, SDL_Texture *save_text, SDL_Renderer *renderer);
 bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect);
 void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option);
 SDL_Surface *sobel_algorithm(SDL_Surface *surface);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
     SDL_Rect add_button_rect = {5, 0, button_res, button_res};
     SDL_Rect save_button_rect = {(button_res * 10) + 5, 0, button_res, button_res};
 
-    // Open font from file - OpenSans 12 px
+    // Open font from file - OpenSans 20 px
     TTF_Font *font = TTF_OpenFont("OpenSans.ttf", 20);
     if(font == NULL)
     {
@@ -93,16 +93,20 @@ int main(int argc, char *argv[])
     }
 
     SDL_Color text_color = {0, 0, 0, 255}; // Black
-    SDL_Surface *text_surface = TTF_RenderText_Solid(font, "Load file", text_color);
-    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-    
 
-    render_buttons_with_text(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
+    // Add button text
+    SDL_Surface *add_text_surface = TTF_RenderText_Solid(font, "Load file", text_color);
+    SDL_Texture *add_text_texture = SDL_CreateTextureFromSurface(renderer, add_text_surface);
+    SDL_Rect add_text_rect = {button_res + 10, 0, add_text_surface->w, add_text_surface->h};
+    SDL_FreeSurface(add_text_surface);
 
-    SDL_Rect text = {button_res + 5, 0, text_surface->w, text_surface->h};
-    SDL_FreeSurface(text_surface);
-    SDL_RenderCopy(renderer, text_texture, NULL, &text);
-    SDL_RenderPresent(renderer);
+    // Save button text
+    SDL_Surface *save_text_surface = TTF_RenderText_Solid(font, "Save file", text_color);
+    SDL_Texture *save_text_texture = SDL_CreateTextureFromSurface(renderer, save_text_surface);
+    SDL_Rect save_text_rect = {(button_res * 10 + button_res) + 10, 0, save_text_surface->w, save_text_surface->h};
+    SDL_FreeSurface(save_text_surface);
+
+    render_buttons_with_text(add_button_rect, save_button_rect, add_button_texture, save_button_texture, add_text_rect, save_text_rect, add_text_texture, save_text_texture, renderer);
 
     SDL_Surface *processed_surface;
 
@@ -165,7 +169,8 @@ int main(int argc, char *argv[])
                     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
                     save_button_rect.x = width + 5;
-                    render_buttons_with_text(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
+                    save_text_rect.x = width + button_res + 10;
+                    render_buttons_with_text(add_button_rect, save_button_rect, add_button_texture, save_button_texture, add_text_rect, save_text_rect, add_text_texture, save_text_texture, renderer);
 
                     // Create a original texture from surface before edge detection
                     SDL_Texture *origiranl_texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -354,17 +359,21 @@ int main(int argc, char *argv[])
 }
 
 
-void render_buttons_with_text(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer)
+void render_buttons_with_text(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button, SDL_Texture *save_button, SDL_Rect add_text_rect, SDL_Rect save_text_rect, SDL_Texture *add_text, SDL_Texture *save_text, SDL_Renderer *renderer)
 {
     // Set background color
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White
     SDL_RenderClear(renderer);
 
     // Render buttons
-    SDL_RenderCopy(renderer, add_button_texture, NULL, &add_button_rect);
-    SDL_RenderCopy(renderer, save_button_texture, NULL, &save_button_rect);
+    SDL_RenderCopy(renderer, add_button, NULL, &add_button_rect);
+    SDL_RenderCopy(renderer, save_button, NULL, &save_button_rect);
 
-    // Display rendered buttons
+    // Render text
+    SDL_RenderCopy(renderer, add_text, NULL, &add_text_rect);
+    SDL_RenderCopy(renderer, save_text, NULL, &save_text_rect);
+
+    // Display rendered buttons with text
     SDL_RenderPresent(renderer);
 }
 
