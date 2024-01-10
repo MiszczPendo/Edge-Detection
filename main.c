@@ -184,6 +184,29 @@ int main(int argc, char *argv[])
                     int width = surface->w;
                     int height = surface->h;
 
+                    // Screen resolution
+                    int screen_width = GetSystemMetrics(SM_CXSCREEN);
+                    int screen_height = GetSystemMetrics(SM_CYSCREEN);
+
+                    // Validation if selected image isn't too large to fit on the screen
+                    if((width * 2) > screen_width || height > screen_height)
+                    {
+                        printf("Sorry, selected image is too large and it wouldn't fit on your screen.\n");
+                        printf("Please select a different image or resize it to lower resolution.\n");
+                        SDL_FreeSurface(surface);
+                        TTF_CloseFont(font);
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(add_text_texture);
+                        SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyTexture(save_text_texture);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        TTF_Quit();
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
                     // Resize window to fit 2 images on it
                     SDL_SetWindowSize(window, width * 2, height + button_res);
                     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
