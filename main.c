@@ -3,8 +3,9 @@
 #include <windows.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 
-void render_buttons(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer);
+void render_buttons_with_text(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer);
 bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect);
 void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option);
 SDL_Surface *sobel_algorithm(SDL_Surface *surface);
@@ -27,7 +28,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Buttons icon resolution (they are a square so width == height)
+    // Initialize SDL_ttf
+    if(TTF_Init() != 0)
+    {
+        printf("Couldn't initialize SDL_ttf. Error: %s.\n", TTF_GetError());
+        IMG_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    // Buttons icon resolution - 32 px (they are a square so width == height)
     SDL_Surface *add_button_surface = IMG_Load("src/icons/add_icon.png");
     int button_res = add_button_surface->w;
 
@@ -37,6 +47,7 @@ int main(int argc, char *argv[])
     {
         printf("Couldn't create window. Error: %s.\n", SDL_GetError());
         SDL_FreeSurface(add_button_surface);
+        TTF_Quit();
         IMG_Quit();
         SDL_Quit();
         return 1;
@@ -47,14 +58,15 @@ int main(int argc, char *argv[])
     if(renderer == NULL)
     {
         printf("Couldn't create renderer. Error: %s.\n", SDL_GetError());
-        SDL_DestroyWindow(window);
         SDL_FreeSurface(add_button_surface);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
         IMG_Quit();
         SDL_Quit();
         return 1;
     }
 
-    // Create textures
+    // Create textures for buttons
     SDL_Texture *add_button_texture = SDL_CreateTextureFromSurface(renderer, add_button_surface);
     SDL_FreeSurface(add_button_surface);
     SDL_Surface *save_button_surface = IMG_Load("src/icons/save_icon.png");
@@ -65,7 +77,32 @@ int main(int argc, char *argv[])
     SDL_Rect add_button_rect = {5, 0, button_res, button_res};
     SDL_Rect save_button_rect = {(button_res * 10) + 5, 0, button_res, button_res};
 
-    render_buttons(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
+    // Open font from file - OpenSans 12 px
+    TTF_Font *font = TTF_OpenFont("OpenSans.ttf", 20);
+    if(font == NULL)
+    {
+        printf("Couldn't open font. Error: %s.\n", TTF_GetError());
+        SDL_DestroyTexture(add_button_texture);
+        SDL_DestroyTexture(save_button_texture);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        IMG_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Color text_color = {0, 0, 0, 255}; // Black
+    SDL_Surface *text_surface = TTF_RenderText_Solid(font, "Load file", text_color);
+    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+    
+
+    render_buttons_with_text(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
+
+    SDL_Rect text = {button_res + 5, 0, text_surface->w, text_surface->h};
+    SDL_FreeSurface(text_surface);
+    SDL_RenderCopy(renderer, text_texture, NULL, &text);
+    SDL_RenderPresent(renderer);
 
     SDL_Surface *processed_surface;
 
@@ -108,10 +145,12 @@ int main(int argc, char *argv[])
                     if(surface == NULL)
                     {
                         printf("Couldn't load image. Error: %s.\n", IMG_GetError());
+                        TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
+                        TTF_Quit();
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -126,7 +165,7 @@ int main(int argc, char *argv[])
                     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
                     save_button_rect.x = width + 5;
-                    render_buttons(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
+                    render_buttons_with_text(add_button_rect, save_button_rect, add_button_texture, save_button_texture, renderer);
 
                     // Create a original texture from surface before edge detection
                     SDL_Texture *origiranl_texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -134,10 +173,12 @@ int main(int argc, char *argv[])
                     {
                         printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
                         SDL_FreeSurface(surface);
+                        TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
+                        TTF_Quit();
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -154,10 +195,12 @@ int main(int argc, char *argv[])
                     {
                         printf("Couldn't convert surface pixel format. Error: %s.\n", SDL_GetError());
                         SDL_FreeSurface(surface);
+                        TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
+                        TTF_Quit();
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -176,10 +219,29 @@ int main(int argc, char *argv[])
                         printf("Couldn't set all of the colors. Error: %s.\n", SDL_GetError());
                         SDL_FreeSurface(eight_bit_surface);
                         SDL_FreeSurface(surface);
+                        TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
+                        TTF_Quit();
+                        IMG_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+
+                    // Lock the surfaces for safe, direct access to the pixels
+                    if(SDL_LockSurface(surface) != 0 || SDL_LockSurface(eight_bit_surface) != 0)
+                    {
+                        printf("Couldn't lock the surfaces. Error: %s.\n", SDL_GetError());
+                        SDL_FreeSurface(eight_bit_surface);
+                        SDL_FreeSurface(surface);
+                        TTF_CloseFont(font);
+                        SDL_DestroyTexture(add_button_texture);
+                        SDL_DestroyTexture(save_button_texture);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        TTF_Quit();
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -204,17 +266,22 @@ int main(int argc, char *argv[])
                         }
                     }
 
+                    // Unlock the surfaces
+                    SDL_UnlockSurface(surface);
                     SDL_FreeSurface(surface);
+                    SDL_UnlockSurface(eight_bit_surface);
 
                     // Apply Sobel algorithm on converted surface
                     processed_surface = sobel_algorithm(eight_bit_surface);
                     if(processed_surface == NULL)
                     {
                         printf("Couldn't perform Sobel edge detection algorithm. Error: %s.\n", SDL_GetError());
+                        TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
+                        TTF_Quit();
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -226,10 +293,12 @@ int main(int argc, char *argv[])
                     {
                         printf("Couldn't create texture. Error: %s.\n", SDL_GetError());
                         SDL_FreeSurface(processed_surface);
+                        TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
                         SDL_DestroyTexture(save_button_texture);
                         SDL_DestroyRenderer(renderer);
                         SDL_DestroyWindow(window);
+                        TTF_Quit();
                         IMG_Quit();
                         SDL_Quit();
                         return 1;
@@ -272,10 +341,12 @@ int main(int argc, char *argv[])
 
     // Clean up resources
     SDL_FreeSurface(processed_surface);
+    TTF_CloseFont(font);
     SDL_DestroyTexture(add_button_texture);
     SDL_DestroyTexture(save_button_texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_Quit();
     IMG_Quit();
     SDL_Quit();
 
@@ -283,7 +354,7 @@ int main(int argc, char *argv[])
 }
 
 
-void render_buttons(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer)
+void render_buttons_with_text(SDL_Rect add_button_rect, SDL_Rect save_button_rect, SDL_Texture *add_button_texture, SDL_Texture *save_button_texture, SDL_Renderer *renderer)
 {
     // Set background color
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White
@@ -410,9 +481,9 @@ SDL_Surface *sobel_algorithm(SDL_Surface *surface)
         }
     }
 
+    // Unlock the surfaces
     SDL_UnlockSurface(surface);
     SDL_FreeSurface(surface);
-
     SDL_UnlockSurface(processed_surface);
 
     return processed_surface;
