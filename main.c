@@ -41,13 +41,14 @@ int main(int argc, char *argv[])
     }
 
     // Buttons icon resolution - 32 px (they are a square so width == height)
-    SDL_Surface *add_button_surface = IMG_Load("src/icons/add_icon.png");
+    SDL_Surface *add_button_surface = IMG_Load("icons/add_icon.png");
     if(add_button_surface == NULL)
     {
         printf("Couldn't load add icon. Error: %s.\n", IMG_GetError());
         TTF_Quit();
         IMG_Quit();
         SDL_Quit();
+        return 1;
     }
     int button_res = add_button_surface->w;
 
@@ -80,7 +81,7 @@ int main(int argc, char *argv[])
     SDL_Texture *add_button_texture = SDL_CreateTextureFromSurface(renderer, add_button_surface);
     SDL_FreeSurface(add_button_surface);
 
-    SDL_Surface *save_button_surface = IMG_Load("src/icons/save_icon.png");
+    SDL_Surface *save_button_surface = IMG_Load("icons/save_icon.png");
     if(save_button_surface == NULL)
     {
         printf("Couldn't load save icon. Error: %s.\n", IMG_GetError());
@@ -90,6 +91,7 @@ int main(int argc, char *argv[])
         TTF_Quit();
         IMG_Quit();
         SDL_Quit();
+        return 1;
     }
     SDL_Texture *save_button_texture = SDL_CreateTextureFromSurface(renderer, save_button_surface);
     SDL_FreeSurface(save_button_surface);
