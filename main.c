@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
                     }
 
                     // Save processed image to selected file
-                    if(IMG_SavePNG(processed_surface, file_path) == 0)
+                    if(IMG_SaveJPG(processed_surface, file_path, 100) == 0)
                     {
                         SDL_FreeSurface(processed_surface);
                     }
@@ -472,9 +472,9 @@ void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option)
     // Option to save file
     else if(option == 2)
     {
-        ofn.lpstrFilter = "PNG (*.png)\0*.png\0";
+        ofn.lpstrFilter = "JPG (*.jpg)\0*.jpg\0";
         ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT;
-        ofn.lpstrDefExt = "png";
+        ofn.lpstrDefExt = "jpg";
 
         // Display save file dialog box
         if(GetSaveFileName(&ofn) != TRUE)
