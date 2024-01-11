@@ -11,7 +11,7 @@ void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option);
 SDL_Surface *sobel_algorithm(SDL_Surface *surface);
 
 // Set what you want to consider as an edge (higher value - less edges)
-int threshold = 200;
+int threshold = 150;
 
 int main(int argc, char *argv[])
 {
@@ -198,6 +198,7 @@ int main(int argc, char *argv[])
                     {
                         printf("Sorry, selected image is too large and two of them wouldn't fit on your screen.\n");
                         printf("Please select a different image or resize it to lower resolution.\n");
+                        printf("You should resize it at least down to size of:\nWidth: %d px\nHeight: %d px\n", screen_width / 2, screen_height - button_res - 30);
                         SDL_FreeSurface(surface);
                         TTF_CloseFont(font);
                         SDL_DestroyTexture(add_button_texture);
