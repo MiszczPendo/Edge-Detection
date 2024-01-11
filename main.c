@@ -10,6 +10,9 @@ bool is_clicked_in_rect(int mouse_x, int mouse_y, SDL_Rect *rect);
 void load_save_file_dialog_box(char *file_path, size_t buffer_size, int option);
 SDL_Surface *sobel_algorithm(SDL_Surface *surface);
 
+// Set what you want to consider as an edge (higher value - less edges)
+int threshold = 200;
+
 int main(int argc, char *argv[])
 {
     // Initialize SDL (defaults subsystems and Video)
@@ -191,7 +194,7 @@ int main(int argc, char *argv[])
                     // Validation if selected image isn't too large to fit on the screen
                     if((width * 2) > screen_width || height > screen_height)
                     {
-                        printf("Sorry, selected image is too large and it wouldn't fit on your screen.\n");
+                        printf("Sorry, selected image is too large and two of them wouldn't fit on your screen.\n");
                         printf("Please select a different image or resize it to lower resolution.\n");
                         SDL_FreeSurface(surface);
                         TTF_CloseFont(font);
@@ -312,7 +315,7 @@ int main(int argc, char *argv[])
                     {
                         for(int x = 0; x < width; x++)
                         {
-                            rgb_pixel = ((Uint32 *)surface->pixels)[y * surface->pitch / 4 + x];
+                            rgb_pixel = *((Uint32 *) ((Uint8 *)surface->pixels + y * surface->pitch + x * surface->format->BytesPerPixel));
 
                             // Extract RGB values from pixel and calculate the value of gray pixel based on linear luminance
                             SDL_GetRGB(rgb_pixel, surface->format, &r, &g, &b);
@@ -510,7 +513,6 @@ SDL_Surface *sobel_algorithm(SDL_Surface *surface)
     Uint8 surrounding_pixel_value;
     int gradient_horizontal, gradient_vertical;
     int magnitude;
-    int threshold = 100;
 
     // Loops going through every pixel (excluding borders)
     for(int y = 1; y < surface->h - 1; y++)
