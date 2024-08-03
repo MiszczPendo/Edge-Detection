@@ -38,6 +38,7 @@ If you receive an error message stating that the resolution of the selected imag
 
 ## References and Resources
 
+- [Edge Detection Explained](https://aryamansharda.medium.com/how-image-edge-detection-works-b759baac01e2)
 - [Icons by Kiranshastry](https://www.flaticon.com/authors/kiranshastry)
 - [SDL2 documentation](https://wiki.libsdl.org/SDL2/APIByCategory)
 - [C documentation](https://cpp0x.pl/dokumentacja/standard-C/1)
